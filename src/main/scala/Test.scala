@@ -34,6 +34,14 @@ class JenkinsMain extends MethodRule {
   private var startCount = 0
   private var javaOpts = List("-Xmx128M")
   
+  private class InternalStatement(base: Statement) extends Statement {
+    override def evaluate(): Unit = try {
+      base.evaluate
+    } finally {
+      doStop
+    }
+  }
+  
   private def parseVersionAnnotation[T <: { def version(): String }](str: Option[T]): Int =
     str map { _.version } map { new DefaultArtifactVersion(_) } map { _.compareTo(JenkinsMain.version.value) } getOrElse {0}
   
@@ -45,7 +53,7 @@ class JenkinsMain extends MethodRule {
     if (since > 0 || until < 0) {
       JenkinsMain.NoOpStatement
     } else {
-      tempFolder(base, method, target) // TODO: Wrap base with logic first
+      tempFolder(new InternalStatement(base), method, target)
     }
   }
   
@@ -63,7 +71,7 @@ class JenkinsMain extends MethodRule {
   def jenkinsHome: File = tempFolder.newFolder("jenkins")
   
   def start = {
-    process map { ignore => throw new IllegalStateException("Jenkins is already started") }
+    process foreach { ignore => throw new IllegalStateException("Jenkins is already started") }
     
     startCount += 1
     val builder = new ProcessBuilder("java")
@@ -77,9 +85,14 @@ class JenkinsMain extends MethodRule {
   }
   
   def stop = {
-    val p = process getOrElse { throw new IllegalStateException("Jenkins has not been started") }
+    process getOrElse { throw new IllegalStateException("Jenkins has not been started") }
+    doStop
+  }
+  
+  private def doStop = {
+    val p = process
     process = None
-    p.destroy
+    p foreach { p => p.destroy }
   }
   
   def baseUrl = new URL("http", "127.0.0.1", port, "/")

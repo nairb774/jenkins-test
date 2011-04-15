@@ -12,7 +12,10 @@ public class SimpleTest {
     public void a() throws Throwable {
         jenkins.start();
         System.out.println(jenkins.baseUrl());
-        Thread.sleep(600 * 1000);
-        jenkins.stop();
+        Thread.sleep(1000);
+    }
+    
+    @Test 
+    public void b() {
     }
 }
